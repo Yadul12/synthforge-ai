@@ -1,0 +1,331 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidIsoTimestamp(ts) {
+      return ts is string && ts.size() >= 10 && ts.size() <= 40;
+    }
+
+    // Validation Blueprints (Pillar 2: Anti-Update-Gap)
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'role', 'createdAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.role is string && data.role.size() <= 32 && data.role in ['engineer', 'researcher', 'auditor']
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidDataset(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'sourceFormat', 'rowCount', 'columnCount', 'schemaSummaryJson', 'sampleRowsJson', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'name', 'description', 'sourceFormat', 'rowCount', 'columnCount', 'targetColumn', 'schemaSummaryJson', 'sampleRowsJson', 'transformationsJson', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 160
+        && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
+        && data.sourceFormat is string && data.sourceFormat.size() <= 20 && data.sourceFormat in ['csv', 'json', 'excel', 'built-in']
+        && data.rowCount is number && data.rowCount >= 0 && data.rowCount <= 1000000
+        && data.columnCount is number && data.columnCount >= 1 && data.columnCount <= 1000
+        && (!('targetColumn' in data) || (data.targetColumn is string && data.targetColumn.size() <= 120))
+        && data.schemaSummaryJson is string && data.schemaSummaryJson.size() <= 60000
+        && data.sampleRowsJson is string && data.sampleRowsJson.size() <= 250000
+        && (!('transformationsJson' in data) || (data.transformationsJson is string && data.transformationsJson.size() <= 50000))
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidDatasetSchema(data) {
+      return data.keys().hasAll(['ownerId', 'datasetId', 'columnsJson', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'datasetId', 'columnsJson', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.datasetId)
+        && data.columnsJson is string && data.columnsJson.size() <= 100000
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidProfilingReport(data) {
+      return data.keys().hasAll(['ownerId', 'datasetId', 'qualityScore', 'missingRate', 'duplicateRate', 'outlierRate', 'reportJson', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'datasetId', 'qualityScore', 'missingRate', 'duplicateRate', 'outlierRate', 'reportJson', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.datasetId)
+        && data.qualityScore is number && data.qualityScore >= 0 && data.qualityScore <= 100
+        && data.missingRate is number && data.missingRate >= 0 && data.missingRate <= 1
+        && data.duplicateRate is number && data.duplicateRate >= 0 && data.duplicateRate <= 1
+        && data.outlierRate is number && data.outlierRate >= 0 && data.outlierRate <= 1
+        && data.reportJson is string && data.reportJson.size() <= 200000
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidGenerationConfig(data) {
+      return data.keys().hasAll(['ownerId', 'datasetId', 'name', 'method', 'numRows', 'randomSeed', 'configJson', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'datasetId', 'name', 'method', 'numRows', 'randomSeed', 'configJson', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.datasetId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 160
+        && data.method is string && data.method.size() <= 40 && data.method in ['gaussian_copula', 'ctgan', 'tvae', 'multivariate_normal', 'conditional_sampling']
+        && data.numRows is number && data.numRows >= 10 && data.numRows <= 50000
+        && data.randomSeed is number
+        && data.configJson is string && data.configJson.size() <= 100000
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidGenerationRun(data) {
+      return data.keys().hasAll(['ownerId', 'datasetId', 'datasetName', 'method', 'numRows', 'randomSeed', 'durationMs', 'qualityScore', 'privacyRiskScore', 'constraintViolationRate', 'status', 'syntheticRowsJson', 'qualityReportJson', 'privacyReportJson', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'datasetId', 'datasetName', 'method', 'numRows', 'randomSeed', 'durationMs', 'qualityScore', 'privacyRiskScore', 'constraintViolationRate', 'mlUtilityDelta', 'status', 'syntheticRowsJson', 'qualityReportJson', 'privacyReportJson', 'mlReportJson', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.datasetId)
+        && data.datasetName is string && data.datasetName.size() >= 1 && data.datasetName.size() <= 160
+        && data.method is string && data.method.size() <= 40 && data.method in ['gaussian_copula', 'ctgan', 'tvae', 'multivariate_normal', 'conditional_sampling']
+        && data.numRows is number && data.numRows >= 1 && data.numRows <= 50000
+        && data.randomSeed is number
+        && data.durationMs is number && data.durationMs >= 0
+        && data.qualityScore is number && data.qualityScore >= 0 && data.qualityScore <= 100
+        && data.privacyRiskScore is number && data.privacyRiskScore >= 0 && data.privacyRiskScore <= 100
+        && data.constraintViolationRate is number && data.constraintViolationRate >= 0 && data.constraintViolationRate <= 1
+        && (!('mlUtilityDelta' in data) || data.mlUtilityDelta is number)
+        && data.status is string && data.status.size() <= 20 && data.status in ['completed', 'failed']
+        && data.syntheticRowsJson is string && data.syntheticRowsJson.size() <= 300000
+        && data.qualityReportJson is string && data.qualityReportJson.size() <= 150000
+        && data.privacyReportJson is string && data.privacyReportJson.size() <= 150000
+        && (!('mlReportJson' in data) || (data.mlReportJson is string && data.mlReportJson.size() <= 150000))
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidSyntheticDataset(data) {
+      return data.keys().hasAll(['ownerId', 'runId', 'datasetId', 'name', 'method', 'rowCount', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'runId', 'datasetId', 'name', 'method', 'rowCount', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.runId)
+        && isValidId(data.datasetId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 160
+        && data.method is string && data.method.size() >= 1 && data.method.size() <= 64
+        && data.rowCount is number && data.rowCount >= 1 && data.rowCount <= 50000
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidQualityAssessment(data) {
+      return data.keys().hasAll(['ownerId', 'runId', 'overallScore', 'constraintViolationRate', 'metricsJson', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'runId', 'overallScore', 'constraintViolationRate', 'metricsJson', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.runId)
+        && data.overallScore is number && data.overallScore >= 0 && data.overallScore <= 100
+        && data.constraintViolationRate is number && data.constraintViolationRate >= 0 && data.constraintViolationRate <= 1
+        && data.metricsJson is string && data.metricsJson.size() <= 150000
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidPrivacyAssessment(data) {
+      return data.keys().hasAll(['ownerId', 'runId', 'overallRiskScore', 'exactOverlapRate', 'nearDuplicateRate', 'miaAuc', 'metricsJson', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'runId', 'overallRiskScore', 'exactOverlapRate', 'nearDuplicateRate', 'miaAuc', 'metricsJson', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.runId)
+        && data.overallRiskScore is number && data.overallRiskScore >= 0 && data.overallRiskScore <= 100
+        && data.exactOverlapRate is number && data.exactOverlapRate >= 0 && data.exactOverlapRate <= 1
+        && data.nearDuplicateRate is number && data.nearDuplicateRate >= 0 && data.nearDuplicateRate <= 1
+        && data.miaAuc is number && data.miaAuc >= 0 && data.miaAuc <= 1
+        && data.metricsJson is string && data.metricsJson.size() <= 150000
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidMLExperiment(data) {
+      return data.keys().hasAll(['ownerId', 'runId', 'datasetId', 'targetColumn', 'taskType', 'resultsJson', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'runId', 'datasetId', 'targetColumn', 'taskType', 'resultsJson', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.runId)
+        && isValidId(data.datasetId)
+        && data.targetColumn is string && data.targetColumn.size() >= 1 && data.targetColumn.size() <= 120
+        && data.taskType is string && data.taskType.size() <= 20 && data.taskType in ['classification', 'regression']
+        && data.resultsJson is string && data.resultsJson.size() <= 180000
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidModelMetric(data) {
+      return data.keys().hasAll(['ownerId', 'experimentId', 'modelName', 'primaryScoreReal', 'primaryScoreSynthetic', 'primaryScoreAugmented', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'experimentId', 'modelName', 'primaryScoreReal', 'primaryScoreSynthetic', 'primaryScoreAugmented', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.experimentId)
+        && data.modelName is string && data.modelName.size() >= 1 && data.modelName.size() <= 80
+        && data.primaryScoreReal is number
+        && data.primaryScoreSynthetic is number
+        && data.primaryScoreAugmented is number
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidExportHistory(data) {
+      return data.keys().hasAll(['ownerId', 'runId', 'exportType', 'fileName', 'rowCount', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'runId', 'exportType', 'fileName', 'rowCount', 'createdAt'])
+        && data.ownerId is string && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && isValidId(data.runId)
+        && data.exportType is string && data.exportType.size() <= 24 && data.exportType in ['csv', 'json', 'pdf_report', 'schema_json']
+        && data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 200
+        && data.rowCount is number && data.rowCount >= 0 && data.rowCount <= 1000000
+        && isValidIsoTimestamp(data.createdAt);
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isVerifiedUser() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role']);
+      allow delete: if false;
+    }
+
+    // 2. Datasets Collection
+    match /datasets/{datasetId} {
+      allow get: if isSignedIn() && isValidId(datasetId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(datasetId) && isValidDataset(incoming());
+      allow update: if isVerifiedUser() && isValidId(datasetId) && isValidDataset(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'rowCount', 'columnCount', 'targetColumn', 'schemaSummaryJson', 'sampleRowsJson', 'transformationsJson']);
+      allow delete: if isVerifiedUser() && isValidId(datasetId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 3. Dataset Schemas Collection
+    match /dataset_schemas/{schemaId} {
+      allow get: if isSignedIn() && isValidId(schemaId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(schemaId) && isValidDatasetSchema(incoming());
+      allow update: if isVerifiedUser() && isValidId(schemaId) && isValidDatasetSchema(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['columnsJson']);
+      allow delete: if isVerifiedUser() && isValidId(schemaId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 4. Profiling Reports Collection
+    match /profiling_reports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(reportId) && isValidProfilingReport(incoming());
+      allow update: if isVerifiedUser() && isValidId(reportId) && isValidProfilingReport(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['qualityScore', 'missingRate', 'duplicateRate', 'outlierRate', 'reportJson']);
+      allow delete: if isVerifiedUser() && isValidId(reportId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 5. Generation Configurations Collection
+    match /generation_configs/{configId} {
+      allow get: if isSignedIn() && isValidId(configId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(configId) && isValidGenerationConfig(incoming());
+      allow update: if isVerifiedUser() && isValidId(configId) && isValidGenerationConfig(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'method', 'numRows', 'randomSeed', 'configJson']);
+      allow delete: if isVerifiedUser() && isValidId(configId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 6. Generation Runs Collection
+    match /generation_runs/{runId} {
+      allow get: if isSignedIn() && isValidId(runId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(runId) && isValidGenerationRun(incoming());
+      allow update: if isVerifiedUser() && isValidId(runId) && isValidGenerationRun(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['mlUtilityDelta', 'mlReportJson']);
+      allow delete: if isVerifiedUser() && isValidId(runId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 7. Synthetic Datasets Collection
+    match /synthetic_datasets/{synthId} {
+      allow get: if isSignedIn() && isValidId(synthId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(synthId) && isValidSyntheticDataset(incoming());
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(synthId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 8. Quality Assessments Collection
+    match /quality_assessments/{assessmentId} {
+      allow get: if isSignedIn() && isValidId(assessmentId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(assessmentId) && isValidQualityAssessment(incoming());
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(assessmentId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 9. Privacy Assessments Collection
+    match /privacy_assessments/{privacyId} {
+      allow get: if isSignedIn() && isValidId(privacyId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(privacyId) && isValidPrivacyAssessment(incoming());
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(privacyId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 10. ML Experiments Collection
+    match /ml_experiments/{experimentId} {
+      allow get: if isSignedIn() && isValidId(experimentId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(experimentId) && isValidMLExperiment(incoming());
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(experimentId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 11. Model Metrics Collection
+    match /model_metrics/{metricId} {
+      allow get: if isSignedIn() && isValidId(metricId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(metricId) && isValidModelMetric(incoming());
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(metricId) && existing().ownerId == request.auth.uid;
+    }
+
+    // 12. Export History Collection
+    match /export_history/{exportId} {
+      allow get: if isSignedIn() && isValidId(exportId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(exportId) && isValidExportHistory(incoming());
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(exportId) && existing().ownerId == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,243 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated platform user profile (public/non-sensitive metadata).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "role": { "type": "string", "enum": ["engineer", "researcher", "auditor"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role", "createdAt"]
+    },
+    "Dataset": {
+      "title": "Dataset",
+      "description": "Uploaded or curated real dataset metadata and serialized sample records.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "sourceFormat": { "type": "string", "enum": ["csv", "json", "excel", "built-in"] },
+        "rowCount": { "type": "number" },
+        "columnCount": { "type": "number" },
+        "targetColumn": { "type": "string", "maxLength": 120 },
+        "schemaSummaryJson": { "type": "string", "maxLength": 60000 },
+        "sampleRowsJson": { "type": "string", "maxLength": 250000 },
+        "transformationsJson": { "type": "string", "maxLength": 50000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "sourceFormat", "rowCount", "columnCount", "schemaSummaryJson", "sampleRowsJson", "createdAt"]
+    },
+    "DatasetSchema": {
+      "title": "DatasetSchema",
+      "description": "Detailed column schema and constraints for a dataset.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "datasetId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "columnsJson": { "type": "string", "maxLength": 100000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "datasetId", "columnsJson", "createdAt"]
+    },
+    "ProfilingReport": {
+      "title": "ProfilingReport",
+      "description": "Comprehensive data quality and statistical profiling report for a real dataset.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "datasetId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "qualityScore": { "type": "number" },
+        "missingRate": { "type": "number" },
+        "duplicateRate": { "type": "number" },
+        "outlierRate": { "type": "number" },
+        "reportJson": { "type": "string", "maxLength": 200000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "datasetId", "qualityScore", "missingRate", "duplicateRate", "outlierRate", "reportJson", "createdAt"]
+    },
+    "GenerationConfiguration": {
+      "title": "GenerationConfiguration",
+      "description": "Saved synthetic data generation parameters and custom domain constraints.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "datasetId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "method": { "type": "string", "enum": ["gaussian_copula", "ctgan", "tvae", "multivariate_normal", "conditional_sampling"] },
+        "numRows": { "type": "number" },
+        "randomSeed": { "type": "number" },
+        "configJson": { "type": "string", "maxLength": 100000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "datasetId", "name", "method", "numRows", "randomSeed", "configJson", "createdAt"]
+    },
+    "GenerationRun": {
+      "title": "GenerationRun",
+      "description": "Execution record and metrics for a synthetic dataset generation run.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "datasetId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "datasetName": { "type": "string", "maxLength": 160 },
+        "method": { "type": "string", "enum": ["gaussian_copula", "ctgan", "tvae", "multivariate_normal", "conditional_sampling"] },
+        "numRows": { "type": "number" },
+        "randomSeed": { "type": "number" },
+        "durationMs": { "type": "number" },
+        "qualityScore": { "type": "number" },
+        "privacyRiskScore": { "type": "number" },
+        "constraintViolationRate": { "type": "number" },
+        "mlUtilityDelta": { "type": "number" },
+        "status": { "type": "string", "enum": ["completed", "failed"] },
+        "syntheticRowsJson": { "type": "string", "maxLength": 300000 },
+        "qualityReportJson": { "type": "string", "maxLength": 150000 },
+        "privacyReportJson": { "type": "string", "maxLength": 150000 },
+        "mlReportJson": { "type": "string", "maxLength": 150000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "datasetId", "datasetName", "method", "numRows", "randomSeed", "durationMs", "qualityScore", "privacyRiskScore", "constraintViolationRate", "status", "syntheticRowsJson", "qualityReportJson", "privacyReportJson", "createdAt"]
+    },
+    "SyntheticDataset": {
+      "title": "SyntheticDataset",
+      "description": "Catalog entry for a generated synthetic dataset artifact.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "runId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "datasetId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "maxLength": 160 },
+        "method": { "type": "string", "maxLength": 64 },
+        "rowCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "runId", "datasetId", "name", "method", "rowCount", "createdAt"]
+    },
+    "QualityAssessment": {
+      "title": "QualityAssessment",
+      "description": "Statistical fidelity, KS test, Chi-Square, Wasserstein, JSD, and structural comparison metrics.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "runId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "overallScore": { "type": "number" },
+        "constraintViolationRate": { "type": "number" },
+        "metricsJson": { "type": "string", "maxLength": 150000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "runId", "overallScore", "constraintViolationRate", "metricsJson", "createdAt"]
+    },
+    "PrivacyAssessment": {
+      "title": "PrivacyAssessment",
+      "description": "Disclosure risk, DCR (Distance to Closest Record), exact overlap, and membership inference risk evaluation.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "runId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "overallRiskScore": { "type": "number" },
+        "exactOverlapRate": { "type": "number" },
+        "nearDuplicateRate": { "type": "number" },
+        "miaAuc": { "type": "number" },
+        "metricsJson": { "type": "string", "maxLength": 150000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "runId", "overallRiskScore", "exactOverlapRate", "nearDuplicateRate", "miaAuc", "metricsJson", "createdAt"]
+    },
+    "MLExperiment": {
+      "title": "MLExperiment",
+      "description": "Downstream ML utility benchmark comparing TRTR (Experiment A), TSTR (Experiment B), and Augmented (Experiment C).",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "runId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "datasetId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetColumn": { "type": "string", "maxLength": 120 },
+        "taskType": { "type": "string", "enum": ["classification", "regression"] },
+        "resultsJson": { "type": "string", "maxLength": 180000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "runId", "datasetId", "targetColumn", "taskType", "resultsJson", "createdAt"]
+    },
+    "ModelMetric": {
+      "title": "ModelMetric",
+      "description": "Individual model metric record for an ML utility experiment.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "experimentId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "modelName": { "type": "string", "maxLength": 80 },
+        "primaryScoreReal": { "type": "number" },
+        "primaryScoreSynthetic": { "type": "number" },
+        "primaryScoreAugmented": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "experimentId", "modelName", "primaryScoreReal", "primaryScoreSynthetic", "primaryScoreAugmented", "createdAt"]
+    },
+    "ExportHistory": {
+      "title": "ExportHistory",
+      "description": "Audit log of exported synthetic datasets, schemas, and PDF evaluation reports.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "runId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "exportType": { "type": "string", "enum": ["csv", "json", "pdf_report", "schema_json"] },
+        "fileName": { "type": "string", "maxLength": 200 },
+        "rowCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "runId", "exportType", "fileName", "rowCount", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles owned by the respective user."
+    },
+    "/datasets/{datasetId}": {
+      "schema": { "$ref": "#/entities/Dataset" },
+      "description": "Uploaded or curated real datasets."
+    },
+    "/dataset_schemas/{schemaId}": {
+      "schema": { "$ref": "#/entities/DatasetSchema" },
+      "description": "Column schemas for datasets."
+    },
+    "/profiling_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ProfilingReport" },
+      "description": "Statistical profiling reports for datasets."
+    },
+    "/generation_configs/{configId}": {
+      "schema": { "$ref": "#/entities/GenerationConfiguration" },
+      "description": "Saved synthetic generation configurations."
+    },
+    "/generation_runs/{runId}": {
+      "schema": { "$ref": "#/entities/GenerationRun" },
+      "description": "Completed synthetic data generation runs with quality and privacy outputs."
+    },
+    "/synthetic_datasets/{synthId}": {
+      "schema": { "$ref": "#/entities/SyntheticDataset" },
+      "description": "Catalog entries for generated synthetic datasets."
+    },
+    "/quality_assessments/{assessmentId}": {
+      "schema": { "$ref": "#/entities/QualityAssessment" },
+      "description": "Detailed statistical quality evaluations."
+    },
+    "/privacy_assessments/{privacyId}": {
+      "schema": { "$ref": "#/entities/PrivacyAssessment" },
+      "description": "Detailed privacy and disclosure risk assessments."
+    },
+    "/ml_experiments/{experimentId}": {
+      "schema": { "$ref": "#/entities/MLExperiment" },
+      "description": "Downstream ML utility benchmarking experiments."
+    },
+    "/model_metrics/{metricId}": {
+      "schema": { "$ref": "#/entities/ModelMetric" },
+      "description": "Per-model metric summaries across experiments A, B, and C."
+    },
+    "/export_history/{exportId}": {
+      "schema": { "$ref": "#/entities/ExportHistory" },
+      "description": "Audit trail of dataset and PDF exports."
+    }
+  }
+}
